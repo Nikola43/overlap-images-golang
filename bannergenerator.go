@@ -24,10 +24,10 @@ type (
 )
 
 // GenerateBanner is a function that combine images and texts into one image
-func GenerateBanner(imgs []ImageLayer) (*image.RGBA, error) {
+func GenerateBanner(imgs []ImageLayer, width, length int) (*image.RGBA, error) {
 	bg := bannergenerator.BgProperty{
-		Width:   512,
-		Length:  512,
+		Width:   width,
+		Length:  length,
 		BgColor: color.Transparent,
 	}
 

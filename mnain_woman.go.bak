@@ -1,0 +1,260 @@
+package main
+
+import (
+	"encoding/json"
+	"image"
+	"image/png"
+	_ "image/png"
+	"log"
+	"math/rand"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+)
+
+const (
+	BASE_PATH              = "WOMAN"
+	ARM_ACCENT_PATH        = BASE_PATH + "/ARM_ACCENT"
+	DRESS_UPPER_PATH       = BASE_PATH + "/DRESS_UPPER"
+	HEAD_PATH              = BASE_PATH + "/HEAD"
+	LEGS_PATH              = BASE_PATH + "/LEGS"
+	LOWER_BODY_ACCENT_PATH = BASE_PATH + "/LOWER_BODY_ACCENT"
+	NECK_PATH             = BASE_PATH + "/NECK"
+	SHOES_PATH           = BASE_PATH + "/SHOES"
+	WEAPON_PATH             = BASE_PATH + "/WEAPON"
+	WINGS_PATH             = BASE_PATH + "/WINGS"
+)
+
+var layers = make([]ImageLayer, 0)
+
+func main() {
+
+	armAccents := GetFiles(ARM_ACCENT_PATH, "All")
+	dressess := GetFiles(DRESS_UPPER_PATH, "All")
+	heads := GetFiles(HEAD_PATH, "All")
+	legs := GetFiles(LEGS_PATH, "All")
+	lowerBodys := GetFiles(LOWER_BODY_ACCENT_PATH, "All")
+	necks := GetFiles(NECK_PATH, "All")
+	skins := GetFiles(SHOES_PATH, "All")
+	weapons := GetFiles(WEAPON_PATH, "All")
+	wings := GetFiles(WINGS_PATH, "All")
+
+	COMMON_START_RANGE := 0
+	COMMON_END_RANGE := 3
+	/*
+		UNCOMMON_START_RANGE := 0
+		UNCOMMON_END_RANGE := 4444
+
+		RARE_START_RANGE := 0
+		RARE_END_RANGE := 4444
+
+		MYTHICAL_START_RANGE := 0
+		MYTHICAL_END_RANGE := 4444
+
+		LEGEND_START_RANGE := 0
+		LEGEND_END_RANGE := 4444
+	*/
+
+	elements := make([]*MetaplexMetadata, 0)
+
+	for i := COMMON_START_RANGE; i < COMMON_END_RANGE; i++ {
+
+		baseWomanImagePath := "./WOMAN/WOMAN_BASE.png"
+		armAccentsImagePath := armAccents[GenerateRandomNumber(0, len(armAccents)-1)]
+		dressessImagePath := dressess[GenerateRandomNumber(0, len(dressess)-1)]
+		headsImagePath := heads[GenerateRandomNumber(0, len(heads)-1)]
+		legsImagePath := legs[GenerateRandomNumber(0, len(legs)-1)]
+		lowerBodysImagePath := lowerBodys[GenerateRandomNumber(0, len(lowerBodys)-1)]
+		necksImagePath := necks[GenerateRandomNumber(0, len(necks)-1)]
+		skinsImagePath := skins[GenerateRandomNumber(0, len(skins)-1)]
+		weaponsImagePath := weapons[GenerateRandomNumber(0, len(weapons)-1)]
+		wingsImagePath := wings[GenerateRandomNumber(0, len(wings)-1)]
+
+		AddElement(wingsImagePath)
+		AddElement(baseWomanImagePath)
+		AddElement(dressessImagePath)
+		AddElement(skinsImagePath)
+		AddElement(armAccentsImagePath)
+		AddElement(headsImagePath)
+		AddElement(legsImagePath)
+		AddElement(lowerBodysImagePath)
+		AddElement(necksImagePath)
+		AddElement(weaponsImagePath)
+
+
+
+		res, err := GenerateBanner(layers)
+		if err != nil {
+			log.Printf("Error generating banner: %+v\n", err)
+		}
+
+		counterString := strconv.Itoa(i)
+		f, _ := os.Create("./womans/common/original/" + counterString + ".png")
+		png.Encode(f, res)
+
+		metadata := new(MetaplexMetadata)
+		metadata.Name = "Woman #" + counterString
+		metadata.Symbol = "Woman"
+		metadata.Description = "Woman"
+		metadata.SellerFeeBasisPoints = 500
+		metadata.Image = "./Babies/common/original/" + counterString + ".png"
+		metadata.ExternalURL = "https://nft.woman.com"
+		metadata.Edition = "2021"
+
+		AddAttributes(metadata, "ARM_ACCENT", armAccentsImagePath)
+		AddAttributes(metadata, "ARM_ACCENT", armAccentsImagePath)
+		AddAttributes(metadata, "DRESS_UPPER", dressessImagePath)
+		AddAttributes(metadata, "HEAD", headsImagePath)
+		AddAttributes(metadata, "LEGS", legsImagePath)
+		AddAttributes(metadata, "LOWER", lowerBodysImagePath)
+		AddAttributes(metadata, "NECK", necksImagePath)
+		AddAttributes(metadata, "SHOES", skinsImagePath)
+		AddAttributes(metadata, "WEAPON", weaponsImagePath)
+		AddAttributes(metadata, "WINGS", wingsImagePath)
+
+		metadata.Properties.Category = "image"
+		metadata.Properties.Creators = append(metadata.Properties.Creators, Creator{
+			Address: "B4s4rHrjWDTxVDZv7s9SZcstuYvRT2dtLnicAkfkHds1",
+			Share:   100,
+		})
+		metadata.Properties.Files = append(metadata.Properties.Files, File{
+			URI:  "./womans/common/original/" + counterString + ".png",
+			Type: "image",
+		})
+
+		elements = append(elements, metadata)
+
+		//fmt.Println()
+
+		log.Println(counterString)
+	}
+
+	j2, _ := json.Marshal(elements)
+
+	// to append to a file
+	// create the file if it doesn't exists with O_CREATE, Set the file up for read write, add the append flag and set the permission
+	f2, errr2 := os.OpenFile("./womans/common/original/whole.json", os.O_CREATE|os.O_RDWR|os.O_APPEND, 0660)
+	defer f2.Close()
+	if errr2 != nil {
+		log.Fatal(errr2)
+	}
+	// write to file, f.Write()
+	f2.Write(j2)
+
+	/*
+			// to append to a file
+		// create the file if it doesn't exists with O_CREATE, Set the file up for read write, add the append flag and set the permission
+		f, errr := os.OpenFile("./Babies/common/original/"+counterString+".json", os.O_CREATE|os.O_RDWR|os.O_APPEND, 0660)
+		defer f.Close()
+		if errr != nil {
+			log.Fatal(errr)
+		}
+		// write to file, f.Write()
+		f.Write(j)
+	*/
+}
+
+func AddAttributes(metadata *MetaplexMetadata, name string, value string) {
+	metadata.Attributes = append(metadata.Attributes, Attribute{
+		TraitType: name,
+		Value:     GetObjectName(value),
+	})
+}
+
+func AddElement(layer string) {
+	img, e := openImage(layer)
+	if e != nil {
+		panic("e")
+		panic(e)
+	}
+
+	layers = append(layers, ImageLayer{
+		Image: img,
+		XPos:  0,
+		YPos:  0,
+	})
+}
+
+func GetObjectName(object string) string {
+	s := strings.Split(object, "/")
+	objectName := s[len(s)-1]
+	objectName = strings.Replace(objectName, ".png", "", 4)
+	return objectName
+}
+
+func GetObjectRarity(object string) string {
+
+	if strings.Contains(object, "Uncommon") {
+		return "Uncommon"
+	}
+
+	if strings.Contains(object, "Common") {
+		return "Common"
+	}
+
+	if strings.Contains(object, "Rare") {
+		return "Rare"
+	}
+
+	if strings.Contains(object, "Mythical") {
+		return "Mythical"
+	}
+
+	if strings.Contains(object, "Legend") {
+		return "Legend"
+	}
+
+	return ""
+}
+
+func openImage(path string) (image.Image, error) {
+	var file, err = os.OpenFile(path, os.O_RDWR, 0644)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	imageFile, _, err := image.Decode(file)
+	if err != nil {
+		return nil, err
+	}
+
+	return imageFile, err
+}
+
+func GetFiles(root string, fileType string) []string {
+	var files []string
+
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if strings.Contains(path, ".png") {
+			t := GetObjectRarity(path)
+			if fileType == "All" {
+				files = append(files, path)
+			} else {
+				if t == fileType {
+					files = append(files, path)
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		panic(err)
+	}
+	/*
+		for _, file := range files {
+			fmt.Println(file)
+		}
+	*/
+	return files
+}
+
+func GenerateRandomNumber(min, max int) int {
+	rand.Seed(time.Now().UnixNano())
+	n := rand.Intn(max-min+1) + min
+	//fmt.Println(n)
+
+	return n
+}
