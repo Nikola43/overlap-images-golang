@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"image"
+	"image/jpeg"
 	"image/png"
 	_ "image/png"
 	"log"
@@ -11,7 +13,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
+
+	"github.com/h2non/bimg"
+	gim "github.com/ozankasikci/go-image-merge"
 )
 
 const (
@@ -21,15 +25,52 @@ const (
 	HEAD_PATH              = BASE_PATH + "/HEAD"
 	LEGS_PATH              = BASE_PATH + "/LEGS"
 	LOWER_BODY_ACCENT_PATH = BASE_PATH + "/LOWER_BODY_ACCENT"
-	NECK_PATH             = BASE_PATH + "/NECK"
-	SHOES_PATH           = BASE_PATH + "/SHOES"
-	WEAPON_PATH             = BASE_PATH + "/WEAPON"
+	NECK_PATH              = BASE_PATH + "/NECK"
+	SHOES_PATH             = BASE_PATH + "/SHOES"
+	WEAPON_PATH            = BASE_PATH + "/WEAPON"
 	WINGS_PATH             = BASE_PATH + "/WINGS"
 )
 
+/*
+	accessoriesPercent := GenerateRandomNumber(1, 100)
+	hatsPercent := GenerateRandomNumber(1, 100)
+	hairPercent := GenerateRandomNumber(1, 100)
+
+	fmt.Println(accessoriesPercent)
+	fmt.Println(hatsPercent)
+	fmt.Println(hairPercent)
+*/
+
+/*
+	1. Background
+	2. Stroke
+	3. Skin
+	4. Clothes
+	5. Hats
+	6. Glasses
+	7. Pacifiers
+	8. Hairs
+	9. BackObjects
+	10. HandObjects
+	11. HeadObjects
+*/
+/*
+	rarityPercent := map[string]int{
+		"common":   50,
+		"uncommon": 28,
+		"rare":     15,
+		"mythical": 5,
+		"legend":   2,
+	}
+*/
+
 var layers = make([]ImageLayer, 0)
+var src cryptoSource
+var rnd *rand.Rand
 
 func main() {
+
+	rnd = rand.New(src)
 
 	armAccents := GetFiles(ARM_ACCENT_PATH, "All")
 	dressess := GetFiles(DRESS_UPPER_PATH, "All")
@@ -42,7 +83,7 @@ func main() {
 	wings := GetFiles(WINGS_PATH, "All")
 
 	COMMON_START_RANGE := 0
-	COMMON_END_RANGE := 3
+	COMMON_END_RANGE := 1000
 	/*
 		UNCOMMON_START_RANGE := 0
 		UNCOMMON_END_RANGE := 4444
@@ -60,6 +101,7 @@ func main() {
 	elements := make([]*MetaplexMetadata, 0)
 
 	for i := COMMON_START_RANGE; i < COMMON_END_RANGE; i++ {
+		layers = make([]ImageLayer, 0)
 
 		baseWomanImagePath := "./WOMAN/WOMAN_BASE.png"
 		armAccentsImagePath := armAccents[GenerateRandomNumber(0, len(armAccents)-1)]
@@ -73,6 +115,7 @@ func main() {
 		wingsImagePath := wings[GenerateRandomNumber(0, len(wings)-1)]
 
 		AddElement(wingsImagePath)
+		AddElement(weaponsImagePath)
 		AddElement(baseWomanImagePath)
 		AddElement(dressessImagePath)
 		AddElement(skinsImagePath)
@@ -81,11 +124,8 @@ func main() {
 		AddElement(legsImagePath)
 		AddElement(lowerBodysImagePath)
 		AddElement(necksImagePath)
-		AddElement(weaponsImagePath)
 
-
-
-		res, err := GenerateBanner(layers)
+		res, err := GenerateBanner(layers, 2480, 3508)
 		if err != nil {
 			log.Printf("Error generating banner: %+v\n", err)
 		}
@@ -210,7 +250,9 @@ func GetObjectRarity(object string) string {
 }
 
 func openImage(path string) (image.Image, error) {
-	var file, err = os.OpenFile(path, os.O_RDWR, 0644)
+	p := filepath.FromSlash(path)
+
+	var file, err = os.OpenFile(p, os.O_RDWR, 0644)
 	if err != nil {
 		return nil, err
 	}
@@ -252,9 +294,120 @@ func GetFiles(root string, fileType string) []string {
 }
 
 func GenerateRandomNumber(min, max int) int {
-	rand.Seed(time.Now().UnixNano())
-	n := rand.Intn(max-min+1) + min
-	//fmt.Println(n)
+	ns := make([]int, 0)
 
-	return n
+	if max == 0 {
+		return 0
+	}
+
+	for i := 0; i < 100; i++ {
+		//fmt.Println("max")
+		//fmt.Println(max)
+		n := rnd.Intn(max)
+		ns = append(ns, n)
+	}
+	n2 := rnd.Intn(len(ns))
+
+	return ns[n2]
+}
+
+func ResizeImages(collectionName, generatedType string, amount int, width int) {
+	//for i := 4445; i < 6933; i++ {
+	for i := 1; i <= amount; i++ {
+		counterString := strconv.Itoa(i)
+		ResizeImage("./"+collectionName+"/"+generatedType+"/original/"+counterString+".png", "./"+collectionName+"/"+generatedType+"/resized/", width)
+	}
+}
+
+func MergeImages(collectionName, generatedType string, amount int, imageCountDX, imageCountDY int, divider int) {
+
+	grids := make([]*gim.Grid, 0)
+
+	for i := 1; i < amount; i++ {
+		counterString := strconv.Itoa(i)
+		currentFile := collectionName + "/" + generatedType + "/resized/" + counterString + ".png"
+
+		g := &gim.Grid{
+			ImageFilePath: currentFile,
+		}
+		grids = append(grids, g)
+
+		fmt.Println(counterString)
+
+		if i != 0 && i%divider == 0 {
+			rgba, err := gim.New(grids, imageCountDX, imageCountDY).Merge()
+			if err != nil {
+				panic(err)
+			}
+
+			// save the output to jpg or png
+			file, err2 := os.Create(collectionName + "/" + generatedType + "/merged/" + counterString + ".png")
+			if err2 != nil {
+				panic(err2)
+			}
+			err = jpeg.Encode(file, rgba, &jpeg.Options{Quality: 100})
+			err = png.Encode(file, rgba)
+			grids = []*gim.Grid{}
+		}
+	}
+}
+
+func ResizeImage(path string, out string, width int) {
+	buffer, err := bimg.Read(path)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+	}
+
+	newImage, err := bimg.NewImage(buffer).Resize(width, width)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+	}
+
+	size, err := bimg.NewImage(newImage).Size()
+	if size.Width == width && size.Height == width {
+		fmt.Println("The image size is valid " + path)
+	}
+
+	s := strings.Split(path, "/")
+	bimg.Write(out+s[len(s)-1], newImage)
+}
+
+func AddLabel(path string) {
+	/*
+		buffer, err := bimg.Read(path)
+		if err != nil {
+			fmt.Println("os.Stderr, err")
+			fmt.Fprintln(os.Stderr, err)
+		}
+
+
+			watermark := bimg.Watermark{
+				Text:       "1",
+				Opacity:    1,
+				Width:      48,
+				DPI:        100,
+				Background: bimg.Color{R: 255, G: 255, B: 255},
+			}
+
+		newImage, err := bimg.NewImage(buffer).Resize(48, 48)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+		}
+
+
+			newImage2, err2 := bimg.NewImage(newImage).Watermark(watermark)
+			if err != nil {
+				fmt.Println("os.Stderr, err2")
+				fmt.Fprintln(os.Stderr, err2)
+			}
+
+
+		size, err := bimg.NewImage(newImage).Size()
+		if size.Width == size && size.Height == 48 {
+			fmt.Println("The image size is valid " + path)
+		}
+
+		s := strings.Split(path, "/")
+		bimg.Write("./generatedResizedLabel/"+s[len(s)-1], newImage)
+	*/
 }
