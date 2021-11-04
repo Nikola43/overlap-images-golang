@@ -1,0 +1,205 @@
+package main
+
+import (
+	"bytes"
+	"errors"
+	"fmt"
+	"github.com/h2non/bimg"
+	"image"
+	"image/png"
+	_ "image/png"
+	"log"
+	"math/rand"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+)
+
+const (
+	BASE_PATH        = "BabypunksResized"
+	BACKGROUNDS_PATH = BASE_PATH + "/Backgrounds"
+	IMAGES_PATH = BASE_PATH + "/Unicos"
+	Strokes_PATH = BASE_PATH + "/Strokes"
+)
+
+var layers []ImageLayer
+
+var src cryptoSource
+var rnd *rand.Rand
+
+func main() {
+	rnd = rand.New(src)
+	var backgrounds []string
+	var images []string
+	var strokes []string
+
+	var backgroundImagePath string
+	var strokeImagePath string
+	var imageImagePath string
+
+	backgrounds = GetFiles(BACKGROUNDS_PATH, "All")
+	strokes = GetFiles(Strokes_PATH, "Legend")
+	images = GetFiles(IMAGES_PATH, "All")
+	fmt.Println(backgrounds)
+
+	for i := 0; i <= 31; i++ {
+		layers = make([]ImageLayer, 0)
+
+
+		backgroundImagePath = backgrounds[GenerateRandomNumber(0, len(backgrounds)-1)]
+		strokeImagePath = strokes[GenerateRandomNumber(0, len(strokes)-1)]
+		imageImagePath = images[i]
+
+		AddElement(backgroundImagePath)
+		AddElement(strokeImagePath)
+		AddElement(imageImagePath)
+
+		res, err := GenerateBanner(layers, 1024, 1024)
+		if err != nil {
+			log.Printf("Error generating banner: %+v\n", err)
+		}
+		counterString := strconv.Itoa(i)
+
+		// create buffer
+		buff := new(bytes.Buffer)
+
+		// encode image to buffer
+		err = png.Encode(buff, res)
+		if err != nil {
+			fmt.Println("failed to create buffer", err)
+		}
+
+		options := bimg.Options{
+			Width:        1024,
+			Height:       1024,
+			Crop:         true,
+			Quality:      100,
+			Rotate:       0,
+			Interlace:    true,
+		}
+
+		newImage, err := bimg.NewImage(buff.Bytes()).Process(options)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+		}
+
+		if bimg.NewImage(newImage).Type() != "png" {
+			panic(errors.New("Erro exporting"))
+		}
+
+		r := bimg.Write("./Babies/common/uniques/baby_" + counterString + ".png", newImage)
+		if r != nil {
+			fmt.Println(r)
+		}
+	}
+}
+
+
+func AddElement(layer string) {
+	img, e := openImage(layer)
+	if e != nil {
+		panic("e")
+		panic(e)
+	}
+
+	layers = append(layers, ImageLayer{
+		Image: img,
+		XPos:  0,
+		YPos:  0,
+	})
+}
+
+func GetObjectName(object string) string {
+	s := strings.Split(object, "/")
+	objectName := s[len(s)-1]
+	objectName = strings.Replace(objectName, ".png", "", 4)
+	return objectName
+}
+
+func GetObjectRarity(object string) string {
+
+	if strings.Contains(object, "Uncommon") {
+		return "Uncommon"
+	}
+
+	if strings.Contains(object, "Common") {
+		return "Common"
+	}
+
+	if strings.Contains(object, "Rare") {
+		return "Rare"
+	}
+
+	if strings.Contains(object, "Mythical") {
+		return "Mythical"
+	}
+
+	if strings.Contains(object, "Legend") {
+		return "Legend"
+	}
+
+	return ""
+}
+
+func openImage(path string) (image.Image, error) {
+	p := filepath.FromSlash(path)
+
+	var file, err = os.OpenFile(p, os.O_RDWR, 0644)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	imageFile, _, err := image.Decode(file)
+	if err != nil {
+		return nil, err
+	}
+
+	return imageFile, err
+}
+
+func GetFiles(root string, fileType string) []string {
+	var files []string
+
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if strings.Contains(path, ".png") {
+			t := GetObjectRarity(path)
+			if fileType == "All" {
+				files = append(files, path)
+			} else {
+				if t == fileType {
+					files = append(files, path)
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		panic(err)
+	}
+	/*
+		for _, file := range files {
+			fmt.Println(file)
+		}
+	*/
+	return files
+}
+
+func GenerateRandomNumber(min, max int) int {
+	ns := make([]int, 0)
+
+	if max == 0 {
+		return 0
+	}
+
+	for i := 0; i < 100; i++ {
+		//fmt.Println("max")
+		//fmt.Println(max)
+		n := rnd.Intn(max)
+		ns = append(ns, n)
+	}
+	n2 := rnd.Intn(len(ns))
+
+	return ns[n2]
+}

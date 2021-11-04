@@ -1,0 +1,663 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"github.com/AvraamMavridis/randomcolor"
+	"github.com/h2non/bimg"
+	gim "github.com/ozankasikci/go-image-merge"
+	"image"
+	"image/color"
+	"image/jpeg"
+	"image/png"
+	_ "image/png"
+	"log"
+	"math/rand"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+)
+
+const (
+	BASE_PATH              = "WOMAN"
+	BACKGROUNDS_PATH       = BASE_PATH + "/Backgrounds"
+	ARM_ACCENT_PATH        = BASE_PATH + "/ARM_ACCENT"
+	DRESS_UPPER_PATH       = BASE_PATH + "/DRESS_UPPER"
+	HEAD_PATH              = BASE_PATH + "/HEAD"
+	LEGS_PATH              = BASE_PATH + "/LEGS"
+	LOWER_BODY_ACCENT_PATH = BASE_PATH + "/LOWER_BODY_ACCENT"
+	NECK_PATH              = BASE_PATH + "/NECK"
+	SHOES_PATH             = BASE_PATH + "/SHOES"
+	WEAPON_PATH            = BASE_PATH + "/WEAPON"
+	WINGS_PATH             = BASE_PATH + "/WINGS"
+)
+
+/*
+	accessoriesPercent := GenerateRandomNumber(1, 100)
+	hatsPercent := GenerateRandomNumber(1, 100)
+	hairPercent := GenerateRandomNumber(1, 100)
+
+	fmt.Println(accessoriesPercent)
+	fmt.Println(hatsPercent)
+	fmt.Println(hairPercent)
+*/
+
+/*
+	1. Background
+	2. Stroke
+	3. Skin
+	4. Clothes
+	5. Hats
+	6. Glasses
+	7. Pacifiers
+	8. Hairs
+	9. BackObjects
+	10. HandObjects
+	11. HeadObjects
+*/
+/*
+	rarityPercent := map[string]int{
+		"common":   50,
+		"uncommon": 28,
+		"rare":     15,
+		"mythical": 5,
+		"legend":   2,
+	}
+*/
+
+var layers = make([]ImageLayer, 0)
+var src cryptoSource
+var rnd *rand.Rand
+
+var (
+	colorB = [3]float64{248, 54, 0}
+	colorA = [3]float64{254, 140, 0}
+)
+
+var (
+	max = float64(0)
+)
+
+func linearGradient(x, y float64) (uint8, uint8, uint8) {
+	d := x / max
+	r := colorA[0] + d*(colorB[0]-colorA[0])
+	g := colorA[1] + d*(colorB[1]-colorA[1])
+	b := colorA[2] + d*(colorB[2]-colorA[2])
+	return uint8(r), uint8(g), uint8(b)
+}
+
+func GenerateRandomBackgroundImage(width, height int) *image.RGBA {
+	var rColor = randomcolor.GetRandomColorInRgb()
+	a := image.NewUniform(color.NRGBA{
+		R: uint8(rColor.Red),
+		G: uint8(rColor.Green),
+		B: uint8(rColor.Blue),
+		A: 255,
+	})
+
+	dst := image.NewRGBA(image.Rect(0, 0, width, height)) //*NRGBA (image.Image interface)
+	for x := 0; x < width; x++ {
+		for y := 0; y < height; y++ {
+			dst.Set(x, y, a)
+		}
+	}
+	return dst
+}
+func GenerateRandomGrandientImage(filename string, width, height int) *image.RGBA {
+	var r1 = randomcolor.GetRandomColorInRgb()
+	var r2 = randomcolor.GetRandomColorInRgb()
+	max = float64(width)
+
+	colorA = [3]float64{float64(r1.Red), float64(r1.Green), float64(r1.Blue)}
+	colorB = [3]float64{float64(r2.Red), float64(r2.Green), float64(r2.Blue)}
+
+	var w, h int = width, height
+	dst := image.NewRGBA(image.Rect(0, 0, w, h)) //*NRGBA (image.Image interface)
+
+	for x := 0; x < w; x++ {
+		for y := 0; y < h; y++ {
+			r, g, b := linearGradient(float64(x), float64(y))
+			c := color.RGBA{
+
+				r,
+				g,
+				b,
+				255,
+			}
+			dst.Set(x, y, c)
+		}
+	}
+
+	//img, _ := os.Create(filename)
+	//defer img.Close()
+	//png.Encode(img, dst) //Encode writes the Image m to w in PNG format.
+
+	return dst
+}
+
+func main() {
+
+	//ResizeImages("Babies", 10000, 256)
+	//os.Exit(0)
+
+	/*
+		for i := 0; i < 200; i++ {
+			counterString := strconv.Itoa(i)
+			GenerateRandomGrandientImage("backsGo/backs_" + counterString + ".png")
+		}
+		os.Exit(0)
+	*/
+	//ResizeImages("Babies", "common", 10000, 256)
+	//MergeImages("Babies", "common", 10000, 25, 40, 1000)
+	//os.Exit(0)
+
+	rnd = rand.New(src)
+	//ResizeImages("Babies", "common", 10)
+	//MergeImages("Babies", "common", 10, 2, 5, 9)
+	//os.Exit(0)
+
+	var backgrounds []string
+	var dressess []string
+	var heads []string
+	var legs []string
+	var lowerBodys []string
+	var necks []string
+	var shoes []string
+	var weapons []string
+	var wingsarmAccents []string
+	var armAccents []string
+
+	var backgroundImagePath string
+	var dressessImagePath string
+	var headsImagePath string
+	var legsImagePath string
+	var lowerBodysImagePath string
+	var necksImagePath string
+	var shoesImagePath string
+	var weaponsImagePath string
+	var wingsImagePath string
+	var armAccentsImagePath string
+
+	COMMON_START_RANGE := 0
+	COMMON_END_RANGE := 100
+
+	fmt.Println(backgroundImagePath)
+
+	elements := make([]*OpenseaMetadata, 0)
+	backgrounds = GetFiles(BACKGROUNDS_PATH, "Common")
+	fmt.Println(backgrounds)
+	baseWomanImagePath := "./WOMAN/WOMAN_BASE.png"
+	for i := COMMON_START_RANGE; i < COMMON_END_RANGE; i++ {
+		layers = make([]ImageLayer, 0)
+
+		metadata := new(OpenseaMetadata)
+		metadata.Description = "Woman"
+
+		armAccentsPercent := GenerateRandomNumber(0, 100)
+		dressessPercent := GenerateRandomNumber(0, 100)
+		headsPercent := GenerateRandomNumber(0, 100)
+		legsPercent := GenerateRandomNumber(0, 100)
+		lowerBodysPercent := GenerateRandomNumber(0, 100)
+		necksPercent := GenerateRandomNumber(0, 100)
+		shoesPercent := GenerateRandomNumber(0, 100)
+		weaponsPercent := GenerateRandomNumber(0, 100)
+		wingsarmAccentsPercent := GenerateRandomNumber(0, 100)
+
+		armAccentsType := ""
+		dressessType := ""
+		headsType := ""
+		legsType := ""
+		lowerBodysType := ""
+		necksType := ""
+		shoesType := ""
+		weaponsType := ""
+		wingsarmAccentsType := ""
+
+		if armAccentsPercent >= 0 && armAccentsPercent < 72 {
+			armAccentsType = "Original"
+		} else if armAccentsPercent >= 72 && armAccentsPercent < 94 {
+			armAccentsType = "Rare"
+		} else if armAccentsPercent >= 94 && armAccentsPercent < 99 {
+			armAccentsType = "Epic"
+		} else {
+			armAccentsType = "Legendary"
+		}
+
+		if dressessPercent >= 0 && dressessPercent < 72 {
+			dressessType = "Original"
+		} else if dressessPercent >= 72 && dressessPercent < 94 {
+			dressessType = "Rare"
+		} else if dressessPercent >= 94 && dressessPercent < 99 {
+			dressessType = "Epic"
+		} else {
+			dressessType = "Legendary"
+		}
+
+		if headsPercent >= 0 && headsPercent < 72 {
+			headsType = "Original"
+		} else if headsPercent >= 72 && headsPercent < 94 {
+			headsType = "Rare"
+		} else if headsPercent >= 94 && headsPercent < 99 {
+			headsType = "Epic"
+		} else {
+			headsType = "Legendary"
+		}
+
+		if legsPercent >= 0 && legsPercent < 72 {
+			legsType = "Original"
+		} else if legsPercent >= 72 && legsPercent < 94 {
+			legsType = "Rare"
+		} else if legsPercent >= 94 && legsPercent < 99 {
+			legsType = "Epic"
+		} else {
+			legsType = "Legendary"
+		}
+
+		if lowerBodysPercent >= 0 && lowerBodysPercent < 72 {
+			lowerBodysType = "Original"
+		} else if lowerBodysPercent >= 72 && lowerBodysPercent < 94 {
+			lowerBodysType = "Rare"
+		} else if lowerBodysPercent >= 94 && lowerBodysPercent < 99 {
+			lowerBodysType = "Epic"
+		} else {
+			lowerBodysType = "Legendary"
+		}
+
+		if necksPercent >= 0 && necksPercent < 72 {
+			necksType = "Original"
+		} else if necksPercent >= 72 && necksPercent < 94 {
+			necksType = "Rare"
+		} else if necksPercent >= 94 && necksPercent < 99 {
+			necksType = "Epic"
+		} else {
+			necksType = "Legendary"
+		}
+
+		if shoesPercent >= 0 && shoesPercent < 72 {
+			shoesType = "Original"
+		} else if shoesPercent >= 72 && shoesPercent < 94 {
+			shoesType = "Rare"
+		} else if shoesPercent >= 94 && shoesPercent < 99 {
+			shoesType = "Epic"
+		} else {
+			shoesType = "Legendary"
+		}
+
+		if weaponsPercent >= 0 && weaponsPercent < 72 {
+			weaponsType = "Rare"
+		} else if weaponsPercent >= 72 && weaponsPercent < 94 {
+			weaponsType = "Epic"
+		} else if weaponsPercent >= 94 && weaponsPercent < 99 {
+			weaponsType = "Rare"
+		} else {
+			weaponsType = "Legendary"
+		}
+
+		if wingsarmAccentsPercent >= 0 && wingsarmAccentsPercent < 72 {
+			wingsarmAccentsType = "Original"
+		} else if wingsarmAccentsPercent >= 72 && wingsarmAccentsPercent < 94 {
+			wingsarmAccentsType = "Epic"
+		} else if wingsarmAccentsPercent >= 94 && wingsarmAccentsPercent < 99 {
+			wingsarmAccentsType = "Epic"
+		} else {
+			wingsarmAccentsType = "Legendary"
+		}
+
+		//backgroundImagePath = backgrounds[GenerateRandomNumber(0, len(backgrounds)-1)]
+		//AddElement(backgroundImagePath)
+
+		/*
+
+			    armAccentsPercent := GenerateRandomNumber(0, 100)
+				dressessPercent := GenerateRandomNumber(0, 100)
+				headsPercent := GenerateRandomNumber(0, 100)
+				legsPercent := GenerateRandomNumber(0, 100)
+				lowerBodysPercent := GenerateRandomNumber(0, 100)
+				necksPercent := GenerateRandomNumber(0, 100)
+				shoesPercent := GenerateRandomNumber(0, 100)
+				weaponsPercent := GenerateRandomNumber(0, 100)
+				wingsarmAccentsPercent := GenerateRandomNumber(1, 100)
+		*/
+
+
+		layers = append(layers, ImageLayer{
+			Image: GenerateRandomBackgroundImage(800, 900),
+			XPos:  0,
+			YPos:  0,
+		})
+
+		wingsarmAccents = GetFiles(WINGS_PATH, wingsarmAccentsType)
+		wingsImagePath = wingsarmAccents[GenerateRandomNumber(0, len(wingsarmAccents)-1)]
+		AddElement(wingsImagePath)
+		AddAttributes(metadata, "Stroke", wingsImagePath)
+
+		weapons = GetFiles(WEAPON_PATH, weaponsType)
+		weaponsImagePath = weapons[GenerateRandomNumber(0, len(weapons)-1)]
+		AddElement(weaponsImagePath)
+		AddAttributes(metadata, "Weapon", weaponsImagePath)
+
+		AddElement(baseWomanImagePath)
+
+		dressess = GetFiles(DRESS_UPPER_PATH, dressessType)
+		dressessImagePath = dressess[GenerateRandomNumber(0, len(dressess)-1)]
+		AddElement(dressessImagePath)
+		AddAttributes(metadata, "Dress", dressessImagePath)
+
+		armAccents = GetFiles(ARM_ACCENT_PATH, armAccentsType)
+		armAccentsImagePath = armAccents[GenerateRandomNumber(0, len(armAccents)-1)]
+		AddElement(armAccentsImagePath)
+		AddAttributes(metadata, "Arm", armAccentsImagePath)
+
+		heads = GetFiles(HEAD_PATH, headsType)
+		headsImagePath = heads[GenerateRandomNumber(0, len(heads)-1)]
+		AddElement(headsImagePath)
+		AddAttributes(metadata, "Head", headsImagePath)
+
+		legs = GetFiles(LEGS_PATH, legsType)
+		legsImagePath = legs[GenerateRandomNumber(0, len(legs)-1)]
+		AddElement(legsImagePath)
+		AddAttributes(metadata, "Legs", legsImagePath)
+
+		lowerBodys = GetFiles(LOWER_BODY_ACCENT_PATH, lowerBodysType)
+		lowerBodysImagePath = lowerBodys[GenerateRandomNumber(0, len(lowerBodys)-1)]
+		AddElement(lowerBodysImagePath)
+		AddAttributes(metadata, "Lower Body", lowerBodysImagePath)
+
+		necks = GetFiles(NECK_PATH, necksType)
+		necksImagePath = necks[GenerateRandomNumber(0, len(necks)-1)]
+		AddElement(necksImagePath)
+		AddAttributes(metadata, "Neck", necksImagePath)
+
+		shoes = GetFiles(SHOES_PATH, shoesType)
+		shoesImagePath = shoes[GenerateRandomNumber(0, len(shoes)-1)]
+		AddElement(shoesImagePath)
+		AddAttributes(metadata, "Shoes", shoesImagePath)
+
+		res, err := GenerateBanner(layers, 620, 877)
+		if err != nil {
+			log.Printf("Error generating banner: %+v\n", err)
+		}
+		counterString := strconv.Itoa(i)
+
+		buff := new(bytes.Buffer)
+		err = png.Encode(buff, res)
+		if err != nil {
+			fmt.Println("failed to create buffer", err)
+		}
+
+		options := bimg.Options{
+			Width:     700,
+			Height:    900,
+			Crop:      true,
+			Quality:   100,
+			Rotate:    0,
+			Interlace: true,
+		}
+
+		newImage, err := bimg.NewImage(buff.Bytes()).Process(options)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+		}
+
+		if bimg.NewImage(newImage).Type() != "png" {
+			panic(errors.New("Erro exporting"))
+		}
+
+		r := bimg.Write("./womans/common/original/"+counterString+".png", newImage)
+		if r != nil {
+			fmt.Println(r)
+		}
+
+		metadata.Name = "Woman " + counterString
+		metadata.Image = counterString + ".png"
+		elements = append(elements, metadata)
+
+		log.Println(counterString)
+
+		meta, _ := json.MarshalIndent(metadata, "", "    ")
+
+		// to append to a file
+		// create the file if it doesn't exists with O_CREATE, Set the file up for read write, add the append flag and set the permission
+		f3, errr3 := os.OpenFile("./womans/common/metadata/"+counterString+".json", os.O_CREATE|os.O_RDWR|os.O_APPEND, 0660)
+		defer f3.Close()
+		if errr3 != nil {
+			log.Fatal(errr3)
+		}
+		// write to file, f.Write()
+		f3.Write(meta)
+
+	}
+
+	/*
+		//j2, _ := json.Marshal(elements)
+		j2, _ := json.MarshalIndent(elements, "", "    ")
+
+		// to append to a file
+		// create the file if it doesn't exists with O_CREATE, Set the file up for read write, add the append flag and set the permission
+		f2, errr2 := os.OpenFile("./Babies/common/metadata/whole.json", os.O_CREATE|os.O_RDWR|os.O_APPEND, 0660)
+		defer f2.Close()
+		if errr2 != nil {
+			log.Fatal(errr2)
+		}
+		// write to file, f.Write()
+		f2.Write(j2)
+	*/
+
+	//ResizeImages("Babies", "common", COMMON_END_RANGE, 256)
+	//MergeImages("Babies", "common", 10000, 25, 40, 1000)
+}
+
+func AddAttributes(metadata *OpenseaMetadata, name string, value string) {
+	metadata.Attributes = append(metadata.Attributes, OpenseaMetadataAttribute{
+		TraitType: name,
+		Value:     GetObjectName(value),
+	})
+}
+
+func AddElement(layer string) {
+	img, e := openImage(layer)
+	if e != nil {
+		panic("e")
+		panic(e)
+	}
+
+	layers = append(layers, ImageLayer{
+		Image: img,
+		XPos:  0,
+		YPos:  0,
+	})
+}
+
+func GetObjectName(object string) string {
+	s := strings.Split(object, "/")
+	objectName := s[len(s)-1]
+	objectName = strings.Replace(objectName, ".png", "", 4)
+	return objectName
+}
+
+func GetObjectRarity(object string) string {
+
+	if strings.Contains(object, "Original") {
+		return "Original"
+	}
+
+	if strings.Contains(object, "Rare") {
+		return "Rare"
+	}
+
+	if strings.Contains(object, "Epic") {
+		return "Epic"
+	}
+
+	if strings.Contains(object, "Legendary") {
+		return "Legendary"
+	}
+
+	return ""
+}
+
+func openImage(path string) (image.Image, error) {
+	p := filepath.FromSlash(path)
+
+	var file, err = os.OpenFile(p, os.O_RDWR, 0644)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	imageFile, _, err := image.Decode(file)
+	if err != nil {
+		return nil, err
+	}
+
+	return imageFile, err
+}
+
+func GetFiles(root string, fileType string) []string {
+	var files []string
+
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if strings.Contains(path, ".png") {
+			t := GetObjectRarity(path)
+			if fileType == "All" {
+				files = append(files, path)
+			} else {
+				if t == fileType {
+					files = append(files, path)
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		panic(err)
+	}
+	/*
+		for _, file := range files {
+			fmt.Println(file)
+		}
+	*/
+	return files
+}
+
+func GenerateRandomNumber(min, max int) int {
+	ns := make([]int, 0)
+
+	if max == 0 {
+		return 0
+	}
+
+	for i := 0; i < 100; i++ {
+		//fmt.Println("max")
+		//fmt.Println(max)
+		n := rnd.Intn(max)
+		ns = append(ns, n)
+	}
+	n2 := rnd.Intn(len(ns))
+
+	return ns[n2]
+}
+
+func ResizeImages(collectionName string, amount int, width, height int) {
+	//for i := 4445; i < 6933; i++ {
+	for i := 1; i <= amount; i++ {
+		counterString := strconv.Itoa(i)
+		ResizeImage("./"+collectionName+"/original/"+counterString+".png", "./"+collectionName+"/resized/", width, height)
+	}
+}
+
+func MergeImages(collectionName, generatedType string, amount int, imageCountDX, imageCountDY int, divider int) {
+
+	grids := make([]*gim.Grid, 0)
+
+	for i := 1; i < amount; i++ {
+		counterString := strconv.Itoa(i)
+		currentFile := collectionName + "/" + generatedType + "/resized/baby_" + counterString + ".png"
+
+		g := &gim.Grid{
+			ImageFilePath: currentFile,
+		}
+		grids = append(grids, g)
+
+		fmt.Println(counterString)
+
+		if i != 0 && i%divider == 0 {
+			rgba, err := gim.New(grids, imageCountDX, imageCountDY).Merge()
+			if err != nil {
+				panic(err)
+			}
+
+			// save the output to jpg or png
+			file, err2 := os.Create(collectionName + "/" + generatedType + "/merged/" + counterString + ".png")
+			if err2 != nil {
+				panic(err2)
+			}
+			err = jpeg.Encode(file, rgba, &jpeg.Options{Quality: 100})
+			err = png.Encode(file, rgba)
+			grids = []*gim.Grid{}
+		}
+	}
+}
+
+func ResizeImage(path string, out string, width, height int) {
+	buffer, err := bimg.Read(path)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+	}
+
+	newImage, err := bimg.NewImage(buffer).Resize(width, height)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+	}
+
+	size, err := bimg.NewImage(newImage).Size()
+	if size.Width == width && size.Height == width {
+		fmt.Println("The image size is valid " + path)
+	}
+
+	s := strings.Split(path, "/")
+	bimg.Write(out+s[len(s)-1], newImage)
+}
+
+func AddLabel(path string) {
+	/*
+		buffer, err := bimg.Read(path)
+		if err != nil {
+			fmt.Println("os.Stderr, err")
+			fmt.Fprintln(os.Stderr, err)
+		}
+
+
+			watermark := bimg.Watermark{
+				Text:       "1",
+				Opacity:    1,
+				Width:      48,
+				DPI:        100,
+				Background: bimg.Color{R: 255, G: 255, B: 255},
+			}
+
+		newImage, err := bimg.NewImage(buffer).Resize(48, 48)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+		}
+
+
+			newImage2, err2 := bimg.NewImage(newImage).Watermark(watermark)
+			if err != nil {
+				fmt.Println("os.Stderr, err2")
+				fmt.Fprintln(os.Stderr, err2)
+			}
+
+
+		size, err := bimg.NewImage(newImage).Size()
+		if size.Width == size && size.Height == 48 {
+			fmt.Println("The image size is valid " + path)
+		}
+
+		s := strings.Split(path, "/")
+		bimg.Write("./generatedResizedLabel/"+s[len(s)-1], newImage)
+	*/
+}
